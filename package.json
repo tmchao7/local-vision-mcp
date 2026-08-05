@@ -1,0 +1,23 @@
+{
+  "name": "local-vision-mcp",
+  "version": "0.1.0",
+  "description": "Local Ollama vision MCP server for Claude Code and DeepSeek agents",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "local-vision-mcp": "bin/local-vision.mjs",
+    "local-vision-doctor": "bin/local-vision.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "test:unit": "node --test test/*.test.mjs",
+    "doctor": "node bin/local-vision.mjs --doctor"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.76"
+  }
+}

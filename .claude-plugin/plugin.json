@@ -1,0 +1,6 @@
+{
+  "name": "local-vision",
+  "description": "Local Ollama vision analysis for Claude Code and DeepSeek agents",
+  "version": "0.1.0",
+  "license": "MIT"
+}
