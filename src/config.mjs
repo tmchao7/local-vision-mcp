@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { delimiter, resolve } from "node:path";
 
 export const DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434";
@@ -6,6 +7,7 @@ export const DEFAULT_MAX_BYTES = 20 * 1024 * 1024;
 export const DEFAULT_TIMEOUT_MS = 90_000;
 export const DEFAULT_KEEP_ALIVE = "5m";
 export const DEFAULT_MAX_OUTPUT_CHARS = 12_000;
+export const DEFAULT_USER_IMAGE_DIRECTORIES = ["Pictures", "Desktop", "Downloads"];
 
 function positiveNumber(value, fallback) {
   const parsed = Number(value);
@@ -21,8 +23,10 @@ function splitPaths(value) {
 
 export function readConfig(env = process.env, cwd = process.cwd()) {
   const projectDir = resolve(env.CLAUDE_PROJECT_DIR || cwd);
+  const defaultImagePaths = DEFAULT_USER_IMAGE_DIRECTORIES.map((directory) => resolve(homedir(), directory));
   const allowedPaths = [
     projectDir,
+    ...defaultImagePaths,
     ...splitPaths(env.VISION_ALLOWED_PATHS).map((item) => resolve(projectDir, item)),
   ];
 

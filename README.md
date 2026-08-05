@@ -26,9 +26,9 @@ Run Claude Code with this repository as a development plugin:
 claude --plugin-dir /absolute/path/to/myVisionModel
 ```
 
-The plugin provides the `local-vision` MCP server and the `vision` Skill. The MCP server accepts PNG, JPEG, and WebP paths, and defaults to the active Claude project directory as its allowed path.
+The plugin provides the `local-vision` MCP server and the `vision` Skill. The MCP server accepts PNG, JPEG, and WebP paths. By default, it allows the active Claude project directory plus the current user's `Pictures`, `Desktop`, and `Downloads` directories.
 
-For an image outside the project directory, configure an additional allowed directory before starting Claude Code:
+The agent must still provide an explicit image path; the MCP does not scan these directories. For images in another directory, configure additional allowed paths before starting Claude Code:
 
 ```bash
 export VISION_ALLOWED_PATHS="$HOME/Desktop:$HOME/Downloads"
