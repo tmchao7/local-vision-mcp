@@ -20,7 +20,7 @@ export class OllamaClient {
     model = "qwen3-vl:4b",
     timeoutMs = 90_000,
     keepAlive = "5m",
-    maxOutputTokens = 2048,
+    maxOutputTokens = 4096,
     fetchImpl = globalThis.fetch,
   } = {}) {
     if (typeof fetchImpl !== "function") {
@@ -47,7 +47,7 @@ export class OllamaClient {
       keep_alive: this.keepAlive,
       options: {
         temperature: 0.1,
-        num_predict: detail === "fast" ? 1024 : this.maxOutputTokens,
+        num_predict: detail === "fast" ? 2048 : this.maxOutputTokens,
       },
     };
     void mediaType;
@@ -82,10 +82,15 @@ export class OllamaClient {
   }
 
   async #request(path, options) {
+    const startedAt = Date.now();
     let lastError;
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const remainingMs = this.timeoutMs - (Date.now() - startedAt);
+      if (remainingMs <= 0) {
+        throw new OllamaError("TIMEOUT", `Ollama request timed out after ${this.timeoutMs}ms total.`, { retryable: false });
+      }
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+      const timeout = setTimeout(() => controller.abort(), remainingMs);
       try {
         const response = await this.fetchImpl(`${this.host}${path}`, { ...options, signal: controller.signal });
         if (response.ok) return response;
@@ -101,7 +106,7 @@ export class OllamaClient {
         if (error instanceof OllamaError && !error.retryable) throw error;
         if (attempt === 1) {
           if (error?.name === "AbortError") {
-            throw new OllamaError("TIMEOUT", `Ollama request timed out after ${this.timeoutMs}ms.`, { retryable: false });
+            throw new OllamaError("TIMEOUT", `Ollama request timed out after ${this.timeoutMs}ms total.`, { retryable: false });
           }
           if (error instanceof OllamaError) throw error;
           throw new OllamaError("OLLAMA_UNAVAILABLE", `Could not reach Ollama: ${error.message}`, { retryable: false });

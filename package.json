@@ -14,7 +14,8 @@
   "scripts": {
     "test": "node --test",
     "test:unit": "node --test test/*.test.mjs",
-    "doctor": "node bin/local-vision.mjs --doctor"
+    "doctor": "node bin/local-vision.mjs --doctor",
+    "smoke": "node bin/local-vision.mjs --smoke"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

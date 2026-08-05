@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { readConfig } from "./config.mjs";
+import { createLogger, isDebugEnabled } from "./log.mjs";
 import { OllamaClient } from "./ollama-client.mjs";
 import { createVisionError, normalizeVisionReport, reportToText } from "./report.mjs";
 import { validateImageInput } from "./validation.mjs";
@@ -29,7 +30,8 @@ function resultFor(report) {
   };
 }
 
-export function createVisionServer({ config = readConfig(), client, fetchImpl } = {}) {
+export function createVisionServer({ config = readConfig(), client, fetchImpl, log } = {}) {
+  const logger = log || createLogger({ debug: isDebugEnabled() });
   const visionClient = client || new OllamaClient({
     host: config.ollamaHost,
     model: config.model,
@@ -59,6 +61,7 @@ export function createVisionServer({ config = readConfig(), client, fetchImpl } 
       },
     },
     async ({ path, question, mode, detail }) => {
+      const startedAt = Date.now();
       const context = {
         model: config.model,
         sourcePath: path,
@@ -66,6 +69,7 @@ export function createVisionServer({ config = readConfig(), client, fetchImpl } 
         maxOutputChars: config.maxOutputChars,
       };
 
+      let report;
       try {
         const image = await validateImageInput(path, {
           projectDir: config.projectDir,
@@ -80,13 +84,19 @@ export function createVisionServer({ config = readConfig(), client, fetchImpl } 
           mode,
           detail,
         });
-        return resultFor(normalizeVisionReport(raw, {
+        logger.debug(`raw_output=${JSON.stringify(raw.slice(0, 200))}${raw.length > 200 ? "…" : ""}`);
+        report = normalizeVisionReport(raw, {
           ...context,
           sourcePath: image.path,
-        }));
+        });
       } catch (error) {
-        return resultFor(createVisionError(error, context));
+        report = createVisionError(error, context);
       }
+      logger.info(
+        `${Date.now() - startedAt}ms model=${config.model} mode=${mode} detail=${detail} ok=${report.ok}`,
+        report.error_code ? `error_code=${report.error_code}` : undefined,
+      );
+      return resultFor(report);
     },
   );
 

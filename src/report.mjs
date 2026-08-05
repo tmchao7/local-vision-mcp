@@ -46,6 +46,15 @@ export function normalizeVisionReport(raw, context) {
   } catch {
     parsed = null;
   }
+  // Real qwen3-vl output truncates mid-JSON after a complete value (missing the
+  // closing brace). Appending one brace is free and recovers that common shape.
+  if (!parsed) {
+    try {
+      parsed = JSON.parse(`${text}}`);
+    } catch {
+      parsed = null;
+    }
+  }
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     report.answer = capText(text || "The vision model returned an empty response.", maxChars);

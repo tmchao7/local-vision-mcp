@@ -35,6 +35,33 @@ test("sends an image to Ollama using the local chat API", async () => {
   assert.equal(body.stream, false);
   assert.equal(body.messages[0].content.includes("Describe the visible error."), true);
   assert.deepEqual(body.messages[0].images, ["aGVsbG8="]);
+  assert.equal(body.options.num_predict, 4096);
+  assert.equal(body.options.temperature, 0.1);
+});
+
+test("uses a smaller token budget for fast detail", async () => {
+  const calls = [];
+  const client = new OllamaClient({
+    fetchImpl: async (url, options) => {
+      calls.push(options);
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { message: { content: "{}" } };
+        },
+      };
+    },
+  });
+
+  await client.analyzeImage({
+    imageBase64: "aGVsbG8=",
+    mediaType: "image/png",
+    mode: "ui",
+    detail: "fast",
+  });
+
+  assert.equal(JSON.parse(calls[0].body).options.num_predict, 2048);
 });
 
 test("classifies a missing Ollama model as a model-not-found error", async () => {
