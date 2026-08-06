@@ -2,7 +2,20 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D20-green.svg)
+![MCP](https://img.shields.io/badge/MCP-stdio%20server-8A2BE2.svg)
+
 面向 Claude Code 及其他纯文本 agent（DeepSeek、Codex 及其分支）的本地 Ollama 视觉分析服务。主文本 agent 保持原样——需要看图时调用一个本地 MCP 工具即可。**图片字节永远不会离开本机**：图片由本地 Ollama 处理，agent 的模型只收到文字报告。
+
+## 功能特性
+
+- **本地与隐私** — 图片只发给 `localhost` 上的 Ollama，绝不向任何文本 LLM API 上传图片。
+- **一个工具，文本进 / 文本出** — `vision_analyze` 接收显式图片路径（可选第二张做 before/after 对比），返回结构化文本报告。
+- **视觉模式** — `ui`（截图、布局、视觉 bug）、`ocr`（精确转写可见文字）、`general`（其他）；`standard` 或 `fast` 详略。
+- **文法约束的结构化输出** — 模型必须按 Schema 输出合法 JSON（Ollama structured outputs）；输出被截断时通过 `truncated` 字段暴露，而不是静默降级。
+- **安全的输入处理** — 带防符号链接逃逸的路径白名单、仅支持 PNG/JPEG/WebP、20 MiB 上限，超大 PNG 在发送前本地降采样。
+- **纯文本 agent 即插即用** — 支持 Claude Code（插件或用户级 MCP）、DeepSeek worker 与 Codex 分支；诊断信息走 stderr，保持 MCP 协议纯净。
 
 ## 快速开始
 
@@ -23,6 +36,15 @@ claude --plugin-dir /absolute/path/to/myVisionModel
 
 `npm run doctor` 无需下载任何东西即可检查 Ollama 是否可达、模型是否已安装。可用 `VISION_MODEL` 覆盖默认模型。
 
+## 工作原理
+
+```
+agent → vision_analyze(path[, secondary_path])    路径白名单 + PNG 降采样
+      → POST /api/chat  →  本地 Ollama            文法约束的 JSON Schema
+      → 结构化文本报告                              answer / observations / visible_text / uncertainties / truncated
+      → agent 只收到文本                           图片字节绝不进入文本 LLM
+```
+
 ## Claude Code 插件
 
 以开发插件方式运行 Claude Code：
@@ -38,6 +60,17 @@ agent 必须显式提供图片路径，MCP 不会扫描这些目录。图片在�
 ```bash
 export VISION_ALLOWED_PATHS="$HOME/Designs:$HOME/Documents"
 ```
+
+### 所有项目全局可用
+
+`--plugin-dir` 只影响其启动的会话。若想**所有**项目都用上视觉能力，只需在用户作用域注册一次服务，并把 skill 链接到个人 skills 目录：
+
+```bash
+claude mcp add local-vision -s user -- "$(which node)" /absolute/path/to/myVisionModel/bin/local-vision.mjs
+ln -s /absolute/path/to/myVisionModel/skills/vision ~/.claude/skills/vision
+```
+
+之后每个 Claude Code 会话里工具都会以 `mcp__local-vision__vision_analyze` 出现。需要覆盖 `VISION_*` 默认值时，在 `claude mcp add` 命令上用 `-e KEY=value` 传入，或在 shell 里设置。
 
 ## DeepSeek worker 接入
 
@@ -98,6 +131,21 @@ node bin/local-vision.mjs --print-mcp-config --format codex > /tmp/local-vision.
 | `VISION_MAX_OUTPUT_CHARS` | `12000` | 报告文本长度上限 |
 | `VISION_KEEP_ALIVE` | `24h` | Ollama 模型保活时长（避免冷启动） |
 
+## 项目结构
+
+```
+bin/local-vision.mjs      入口：--doctor / --smoke / --print-mcp-config / stdio MCP server
+src/server.mjs            vision_analyze 工具（单出口处理、结构化错误）
+src/validation.mjs        路径白名单 + 类型/大小检查（防符号链接的 realpath）
+src/ollama-client.mjs     Ollama /api/chat 客户端（重试、总超时预算、结构化输出）
+src/prompt.mjs            模式/详略提示词构建，含注入防御与扫描契约
+src/report.mjs            宽容的 JSON 归一化 + truncated 标记
+src/png.mjs, resize.mjs   零依赖的内存 PNG 构建 / 解码 + 降采样
+src/config.mjs            全部 VISION_* 环境配置 + 路径白名单根
+skills/vision/SKILL.md    Claude Code skill（何时/如何调用工具）
+test/                     node:test 测试套件（不触网，注入 fetchImpl）
+```
+
 ## 故障排查
 
 | `error_code` | 含义 | 解决 |
@@ -128,3 +176,7 @@ LOG_LEVEL=debug node bin/local-vision.mjs
 ```
 
 每次 `vision_analyze` 调用都会记录耗时、模型、模式、`ok`/`error_code`、`truncated` 与图片数量；启动时记录解析后的配置。服务不会缓存或记录图片字节。
+
+## 许可证
+
+MIT © 2026。见 [LICENSE](LICENSE)。

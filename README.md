@@ -2,7 +2,20 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D20-green.svg)
+![MCP](https://img.shields.io/badge/MCP-stdio%20server-8A2BE2.svg)
+
 Local Ollama vision analysis for Claude Code and other text-only agents (DeepSeek, Codex, and forks). The main text agent stays unchanged — it calls one local MCP tool when it needs to inspect an image. **No image bytes ever leave the machine**: Ollama processes the image locally, and the agent's model receives only the text report.
+
+## Features
+
+- **Local & private** — images go to a local Ollama model over `localhost`; nothing is ever uploaded to a text LLM API.
+- **One tool, text in / text out** — `vision_analyze` takes an explicit image path (optionally a second path for before/after comparison) and returns a structured text report.
+- **Vision modes** — `ui` (screenshots, layouts, visual bugs), `ocr` (exact visible text), and `general`; `standard` or `fast` detail.
+- **Grammar-constrained structured output** — the model must emit valid JSON per schema (Ollama structured outputs); truncated output is surfaced via a `truncated` flag instead of silently degrading.
+- **Safe input handling** — path allowlist with symlink-escape protection, PNG/JPEG/WebP only, 20 MiB cap, and local downscaling of oversized PNGs before they reach Ollama.
+- **Drop-in for text-only agents** — Claude Code (plugin or user-scope MCP), DeepSeek workers, and Codex derivatives; diagnostics stay on stderr so the MCP protocol stays clean.
 
 ## Quick start
 
@@ -23,6 +36,15 @@ Then just ask in the conversation, e.g. *"Analyze `screenshot.png` — what erro
 
 `npm run doctor` checks Ollama reachability and whether the model is installed, without downloading anything. Override the model with `VISION_MODEL`.
 
+## How it works
+
+```
+agent → vision_analyze(path[, secondary_path])     path allowlist + PNG downscale
+      → POST /api/chat  →  local Ollama             grammar-constrained JSON Schema
+      → structured text report                      answer / observations / visible_text / uncertainties / truncated
+      → agent receives text only                    no image bytes ever reach the text LLM
+```
+
 ## Claude Code plugin
 
 Run Claude Code with this repository as a development plugin:
@@ -38,6 +60,17 @@ The agent must still provide an explicit image path; the MCP does not scan these
 ```bash
 export VISION_ALLOWED_PATHS="$HOME/Designs:$HOME/Documents"
 ```
+
+### Available in every project (global)
+
+`--plugin-dir` only affects the session it launches. To use the vision capability in **all** projects, register the server once at the user scope and link the skill into your personal skills directory:
+
+```bash
+claude mcp add local-vision -s user -- "$(which node)" /absolute/path/to/myVisionModel/bin/local-vision.mjs
+ln -s /absolute/path/to/myVisionModel/skills/vision ~/.claude/skills/vision
+```
+
+The tool then appears as `mcp__local-vision__vision_analyze` in every Claude Code session. Pass any `VISION_*` overrides with `-e KEY=value` on the `claude mcp add` command, or set them in your shell.
 
 ## DeepSeek worker integration
 
@@ -98,6 +131,21 @@ All settings have defaults; only `VISION_ALLOWED_PATHS` is commonly needed. Vari
 | `VISION_MAX_OUTPUT_CHARS` | `12000` | Report text cap |
 | `VISION_KEEP_ALIVE` | `24h` | Ollama model keep-alive (avoids cold starts) |
 
+## Project structure
+
+```
+bin/local-vision.mjs      entry point: --doctor / --smoke / --print-mcp-config / stdio MCP server
+src/server.mjs            the vision_analyze tool (single-exit handler, structured errors)
+src/validation.mjs        path allowlist + type/size checks (symlink-safe realpath)
+src/ollama-client.mjs     Ollama /api/chat client (retries, total timeout budget, structured output)
+src/prompt.mjs            mode/detail prompt builder with injection defense + scanner contract
+src/report.mjs            tolerant JSON normalization + truncated flag
+src/png.mjs, resize.mjs   zero-dependency in-memory PNG build / decode + downscale
+src/config.mjs            all VISION_* env config + path allowlist roots
+skills/vision/SKILL.md    Claude Code skill (when/how to call the tool)
+test/                     node:test suite (network-free, injected fetchImpl)
+```
+
 ## Troubleshooting
 
 | `error_code` | Meaning | Fix |
@@ -128,3 +176,7 @@ LOG_LEVEL=debug node bin/local-vision.mjs
 ```
 
 Each `vision_analyze` call logs duration, model, mode, `ok`/`error_code`, `truncated`, and image count; startup logs the resolved config. The server does not cache or log image bytes.
+
+## License
+
+MIT © 2026. See [LICENSE](LICENSE).
