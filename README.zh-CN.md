@@ -69,6 +69,7 @@ node bin/local-vision.mjs --print-mcp-config --format codex > /tmp/local-vision.
 ```json
 {
   "path": "/absolute/path/to/screenshot.png",
+  "secondary_path": "/absolute/path/to/screenshot-after.png",
   "question": "What UI error is visible?",
   "mode": "ui",
   "detail": "standard"
@@ -77,7 +78,10 @@ node bin/local-vision.mjs --print-mcp-config --format codex > /tmp/local-vision.
 
 - `mode`：`ui`（截图、布局、视觉 bug）、`ocr`（精确转写可见文字）、`general`（其他）
 - `detail`：`standard`（默认）或 `fast`（快速初扫）
-- 结果字段：`answer`、`observations`、`visible_text`、`uncertainties`；失败时返回 `error_code` 且 `isError: true`
+- `secondary_path`（可选）：与第一张对比的第二张图（before/after 截图），一次调用同时发送
+- 结果字段：`answer`、`observations`、`visible_text`、`uncertainties`、`truncated`（模型输出被截断时为 true）；失败时返回 `error_code` 且 `isError: true`
+
+报告由 JSON Schema 约束（Ollama structured outputs），模型不可能输出围栏或前言，只有截断可能降级输出——并通过 `truncated` 字段暴露。超过 `VISION_MAX_EDGE` 的 PNG 会在本地先降采样再发送；JPEG/WebP 直通，由 Ollama 处理。
 
 ## 配置
 
@@ -88,10 +92,11 @@ node bin/local-vision.mjs --print-mcp-config --format codex > /tmp/local-vision.
 | `VISION_MODEL` | `qwen3-vl:4b` | Ollama 视觉模型 |
 | `VISION_OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama 地址 |
 | `VISION_ALLOWED_PATHS` | （空） | 额外的图片允许目录，以 `:` 分隔 |
-| `VISION_TIMEOUT_MS` | `90000` | 两次尝试共用的总请求预算 |
+| `VISION_TIMEOUT_MS` | `120000` | 两次尝试共用的总请求预算 |
 | `VISION_MAX_BYTES` | `20971520` | 图片大小上限（20 MiB） |
+| `VISION_MAX_EDGE` | `1280` | PNG 最长边（px），超过则本地降采样 |
 | `VISION_MAX_OUTPUT_CHARS` | `12000` | 报告文本长度上限 |
-| `VISION_KEEP_ALIVE` | `5m` | Ollama 模型保活时长 |
+| `VISION_KEEP_ALIVE` | `24h` | Ollama 模型保活时长（避免冷启动） |
 
 ## 故障排查
 

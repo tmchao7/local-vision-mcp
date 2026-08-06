@@ -9,6 +9,7 @@ export function configEnv(config) {
     VISION_TIMEOUT_MS: String(config.timeoutMs),
     VISION_KEEP_ALIVE: config.keepAlive,
     VISION_MAX_OUTPUT_CHARS: String(config.maxOutputChars),
+    VISION_MAX_EDGE: String(config.maxEdge),
   };
 }
 

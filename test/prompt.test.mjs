@@ -21,8 +21,27 @@ test("uses mode-specific guidance for ui, ocr, and general", () => {
   const ocr = buildVisionPrompt({ mode: "ocr" });
   const general = buildVisionPrompt({ mode: "general" });
   assert.match(ui, /visible UI elements, layout, alignment/);
-  assert.match(ocr, /Transcribe visible text as accurately as possible/);
+  assert.match(ocr, /Transcribe visible text verbatim/);
+  assert.match(ocr, /\[\?\]/, "uncertain characters are marked");
   assert.match(general, /using only evidence in the image/);
+});
+
+test("enforces a describe-only scanner contract", () => {
+  const prompt = buildVisionPrompt({});
+  assert.match(prompt, /scanner, not an advisor: do not suggest fixes, opinions, or next steps\./);
+  assert.match(prompt, /If any detail is unclear, say so explicitly in uncertainties instead of guessing\./);
+  assert.match(prompt, /Do not include code changes as if they were visible facts\./);
+});
+
+test("adds interleaved image markers and compare guidance for multiple images", () => {
+  const single = buildVisionPrompt({ imageCount: 1 });
+  assert.equal(single.startsWith("[img]"), false, "single image stays marker-free");
+
+  const multi = buildVisionPrompt({ question: "What changed?", imageCount: 2 });
+  assert.equal(multi.startsWith("[img]\n[img]\n"), true);
+  assert.match(multi, /the first \[img\] marker is Image 1, the next is Image 2/);
+  assert.match(multi, /Compare the images and report differences/);
+  assert.match(multi, /Reference Image 1 and Image 2 explicitly\./);
 });
 
 test("falls back to ui guidance for an invalid mode", () => {

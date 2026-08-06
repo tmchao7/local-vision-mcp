@@ -26,6 +26,7 @@ export async function runSmoke({ config, client, fetchImpl, question = SMOKE_QUE
     host: config.ollamaHost,
     mode: "general",
     answer: "",
+    truncated: false,
   };
 
   let directory = null;
@@ -35,18 +36,20 @@ export async function runSmoke({ config, client, fetchImpl, question = SMOKE_QUE
     const image = createPng({ width: 96, height: 96, pixel: smokePixel });
     await writeFile(imagePath, image);
 
-    const raw = await visionClient.analyzeImage({
+    const analysis = await visionClient.analyzeImage({
       imageBase64: image.toString("base64"),
       mediaType: "image/png",
       question,
       mode: "general",
       detail: "fast",
     });
-    const hasContent = typeof raw === "string" && raw.trim().length > 0;
-    const report = normalizeVisionReport(raw, {
+    result.truncated = analysis.truncated;
+    const hasContent = typeof analysis.content === "string" && analysis.content.trim().length > 0;
+    const report = normalizeVisionReport(analysis.content, {
       model: config.model,
       sourcePath: imagePath,
       mode: "general",
+      truncated: analysis.truncated,
     });
     result.answer = report.answer;
     result.ok = report.ok && hasContent;

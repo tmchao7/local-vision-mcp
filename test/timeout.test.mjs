@@ -49,7 +49,7 @@ test("retries a transient 5xx once with the remaining budget", async () => {
   });
 
   const result = await client.analyzeImage({ imageBase64: "aGVsbG8=", mediaType: "image/png", mode: "ui" });
-  assert.equal(result, "{}");
+  assert.equal(result.content, "{}");
   assert.equal(calls.length, 2);
 });
 

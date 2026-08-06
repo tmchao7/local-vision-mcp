@@ -33,6 +33,7 @@ function baseReport(context) {
     observations: [],
     visible_text: [],
     uncertainties: [],
+    truncated: Boolean(context.truncated),
   };
 }
 

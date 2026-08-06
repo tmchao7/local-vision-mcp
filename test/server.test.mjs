@@ -60,6 +60,63 @@ test("logs a per-call diagnostic line without changing the result", async () => 
   }
 });
 
+test("compares two images when secondary_path is provided", async () => {
+  const root = await mkdtemp(join(tmpdir(), "local-vision-compare-"));
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "test-client", version: "0.1.0" });
+  const calls = [];
+  const vision = createVisionServer({
+    config: {
+      projectDir: root,
+      allowedPaths: [root],
+      model: "qwen3-vl:4b",
+      maxBytes: 1024,
+      ollamaHost: "http://ollama.test",
+      timeoutMs: 1000,
+      keepAlive: "24h",
+      maxOutputChars: 12000,
+      maxEdge: 1280,
+    },
+    fetchImpl: async (url, options) => {
+      calls.push(JSON.parse(options.body));
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { message: { content: '{"answer":"The button moved from left to right.","observations":[],"visible_text":[],"uncertainties":[]}' } };
+        },
+      };
+    },
+  });
+
+  try {
+    await writeFile(join(root, "before.png"), Buffer.from("png"));
+    await writeFile(join(root, "after.png"), Buffer.from("png"));
+    await vision.server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    const result = await client.callTool({
+      name: "vision_analyze",
+      arguments: {
+        path: "before.png",
+        secondary_path: "after.png",
+        question: "What changed?",
+        mode: "ui",
+      },
+    });
+
+    assert.equal(result.structuredContent.ok, true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].messages[0].images.length, 2);
+    assert.match(calls[0].messages[0].content, /^\[img\]\n\[img\]\n/);
+    assert.match(calls[0].messages[0].content, /Compare the images and report differences/);
+  } finally {
+    await client.close().catch(() => {});
+    await vision.server.close().catch(() => {});
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("exposes vision_analyze and returns structured local vision output", async () => {
   const root = await mkdtemp(join(tmpdir(), "local-vision-server-"));
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

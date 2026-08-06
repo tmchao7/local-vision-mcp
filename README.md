@@ -69,6 +69,7 @@ Append the emitted `[mcp_servers.local-vision]` table to `~/.codex/config.toml` 
 ```json
 {
   "path": "/absolute/path/to/screenshot.png",
+  "secondary_path": "/absolute/path/to/screenshot-after.png",
   "question": "What UI error is visible?",
   "mode": "ui",
   "detail": "standard"
@@ -77,7 +78,10 @@ Append the emitted `[mcp_servers.local-vision]` table to `~/.codex/config.toml` 
 
 - `mode`: `ui` (screenshots, layouts, visual bugs), `ocr` (exact visible text), or `general`
 - `detail`: `standard` (default) or `fast` (quicker first pass)
-- Result fields: `answer`, `observations`, `visible_text`, `uncertainties`; failures return `error_code` with `isError: true`
+- `secondary_path` (optional): a second image to compare against the first (before/after screenshots); both are sent in one call
+- Result fields: `answer`, `observations`, `visible_text`, `uncertainties`, `truncated` (true when the model hit its output limit); failures return `error_code` with `isError: true`
+
+The report is constrained by a JSON Schema (Ollama structured outputs), so the model cannot emit fences or prose — only a truncated payload can degrade it, and that is surfaced via `truncated`. PNG images larger than `VISION_MAX_EDGE` are downscaled locally before being sent; JPEG/WebP pass through and Ollama handles them.
 
 ## Configuration
 
@@ -88,10 +92,11 @@ All settings have defaults; only `VISION_ALLOWED_PATHS` is commonly needed. Vari
 | `VISION_MODEL` | `qwen3-vl:4b` | Ollama vision model |
 | `VISION_OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama endpoint |
 | `VISION_ALLOWED_PATHS` | (empty) | Extra allowed image directories, `:`-separated |
-| `VISION_TIMEOUT_MS` | `90000` | Total request budget across both attempts |
+| `VISION_TIMEOUT_MS` | `120000` | Total request budget across both attempts |
 | `VISION_MAX_BYTES` | `20971520` | Image size limit (20 MiB) |
+| `VISION_MAX_EDGE` | `1280` | Longest PNG edge (px) before local downscaling |
 | `VISION_MAX_OUTPUT_CHARS` | `12000` | Report text cap |
-| `VISION_KEEP_ALIVE` | `5m` | Ollama model keep-alive |
+| `VISION_KEEP_ALIVE` | `24h` | Ollama model keep-alive (avoids cold starts) |
 
 ## Troubleshooting
 

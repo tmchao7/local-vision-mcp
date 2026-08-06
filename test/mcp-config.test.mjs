@@ -11,9 +11,10 @@ const config = {
   model: "qwen3-vl:4b",
   ollamaHost: "http://127.0.0.1:11434",
   maxBytes: 20 * 1024 * 1024,
-  timeoutMs: 90_000,
-  keepAlive: "5m",
+  timeoutMs: 120_000,
+  keepAlive: "24h",
   maxOutputChars: 12_000,
+  maxEdge: 1280,
 };
 
 test("configEnv carries every resolved setting with string values", () => {
@@ -21,9 +22,10 @@ test("configEnv carries every resolved setting with string values", () => {
     VISION_MODEL: "qwen3-vl:4b",
     VISION_OLLAMA_HOST: "http://127.0.0.1:11434",
     VISION_MAX_BYTES: "20971520",
-    VISION_TIMEOUT_MS: "90000",
-    VISION_KEEP_ALIVE: "5m",
+    VISION_TIMEOUT_MS: "120000",
+    VISION_KEEP_ALIVE: "24h",
     VISION_MAX_OUTPUT_CHARS: "12000",
+    VISION_MAX_EDGE: "1280",
   });
 });
 
@@ -63,7 +65,7 @@ test("the codex format emits a valid mcp_servers TOML table", () => {
   assert.equal(toml.split("\n")[0], "[mcp_servers.local-vision]");
   assert.match(toml, /command = "\/usr\/bin\/node"/);
   assert.match(toml, /args = \["\/app\/bin\/local-vision\.mjs"\]/);
-  assert.match(toml, /env = \{ VISION_MODEL = "qwen3-vl:4b", VISION_OLLAMA_HOST = "http:\/\/127\.0\.0\.1:11434", VISION_MAX_BYTES = "20971520", VISION_TIMEOUT_MS = "90000", VISION_KEEP_ALIVE = "5m", VISION_MAX_OUTPUT_CHARS = "12000" \}/);
+  assert.match(toml, /env = \{ VISION_MODEL = "qwen3-vl:4b", VISION_OLLAMA_HOST = "http:\/\/127\.0\.0\.1:11434", VISION_MAX_BYTES = "20971520", VISION_TIMEOUT_MS = "120000", VISION_KEEP_ALIVE = "24h", VISION_MAX_OUTPUT_CHARS = "12000", VISION_MAX_EDGE = "1280" \}/);
   assert.match(toml, /enabled = true/);
 });
 

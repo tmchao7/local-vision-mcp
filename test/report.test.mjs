@@ -28,6 +28,7 @@ test("normalizes fenced JSON into a stable visual report envelope", () => {
     observations: ["The submit button is disabled."],
     visible_text: ["Sign in"],
     uncertainties: [],
+    truncated: false,
   });
 });
 
@@ -60,6 +61,15 @@ test("recovers JSON truncated after a complete value by appending the closing br
   assert.equal(report.answer, "A login form is visible.");
   assert.deepEqual(report.observations, ["The submit button is disabled."]);
   assert.deepEqual(report.uncertainties, []);
+});
+
+test("propagates the model truncation flag from context", () => {
+  const report = normalizeVisionReport('{"answer":"A login form is visible."}', {
+    ...context,
+    truncated: true,
+  });
+
+  assert.equal(report.truncated, true);
 });
 
 test("keeps an array-shaped model response as a readable answer", () => {

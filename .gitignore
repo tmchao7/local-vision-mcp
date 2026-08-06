@@ -16,6 +16,12 @@ coverage/
 dist/
 build/
 
+# Agent and AI tool state (local settings, transcripts, tool configs)
+.claude/
+.cursor/
+.cursorrules
+.windsurf/
+
 # Environment files and local configuration
 .env
 .env.*
@@ -25,8 +31,6 @@ build/
 *.local.yaml
 *.local.yml
 *.local.toml
-.claude/settings.local.json
-.claude/settings.local.*
 .mcp.local.json
 
 # Credentials and private key material
@@ -43,6 +47,12 @@ build/
 **/*.p12
 **/*.pfx
 **/*.keychain
+
+# Binaries and installers
+*.dmg
+*.pkg
+*.exe
+*.msi
 
 # Local images, model weights, and fixtures
 vision-fixtures/

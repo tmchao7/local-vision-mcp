@@ -1,5 +1,28 @@
 import { buildVisionPrompt } from "./prompt.mjs";
 
+// Grammar-constrained report shape (Ollama structured outputs). The model cannot
+// emit fences, prose, or extra keys; only truncation can still break the payload.
+export const VISION_REPORT_SCHEMA = {
+  type: "object",
+  properties: {
+    answer: { type: "string" },
+    observations: { type: "array", items: { type: "string" } },
+    visible_text: { type: "array", items: { type: "string" } },
+    uncertainties: { type: "array", items: { type: "string" } },
+  },
+  required: ["answer", "observations", "visible_text", "uncertainties"],
+  additionalProperties: false,
+};
+
+// Ollama returns message.thinking wrapped in <think>...</think>. Keep the inner
+// text; leave content without a wrapper untouched.
+function stripThinkTags(value) {
+  return String(value ?? "")
+    .replace(/^\s*<think>\s*/i, "")
+    .replace(/\s*<\/think>\s*$/i, "")
+    .trim();
+}
+
 export class OllamaError extends Error {
   constructor(code, message, options = {}) {
     super(message);
@@ -34,19 +57,27 @@ export class OllamaClient {
     this.fetchImpl = fetchImpl;
   }
 
-  async analyzeImage({ imageBase64, mediaType, question, mode = "ui", detail = "standard" }) {
+  async analyzeImage({ images, imageBase64, mediaType, question, mode = "ui", detail = "standard" }) {
+    const imageList = images?.length ? images : (imageBase64 ? [imageBase64] : []);
     const body = {
       model: this.model,
       messages: [{
         role: "user",
-        content: buildVisionPrompt({ question, mode, detail }),
-        images: [imageBase64],
+        content: buildVisionPrompt({ question, mode, detail, imageCount: imageList.length }),
+        images: imageList,
       }],
       stream: false,
-      format: "json",
+      format: VISION_REPORT_SCHEMA,
+      think: false,
       keep_alive: this.keepAlive,
       options: {
         temperature: 0.1,
+        top_p: 0.8,
+        top_k: 20,
+        min_p: 0.05,
+        repeat_penalty: 1.1,
+        seed: 3407,
+        num_ctx: 16_384,
         num_predict: detail === "fast" ? 2048 : this.maxOutputTokens,
       },
     };
@@ -64,11 +95,20 @@ export class OllamaClient {
       throw new OllamaError("INVALID_RESPONSE", "Ollama returned invalid JSON.");
     }
 
-    const content = payload?.message?.content;
-    if (typeof content !== "string") {
+    // qwen3-vl thinking variants can put the answer in message.thinking with an
+    // empty content (ollama #12831). Fall back to thinking with the tags stripped;
+    // a present-but-empty content still returns empty so callers can classify it.
+    const rawContent = payload?.message?.content;
+    if (typeof rawContent !== "string" && typeof payload?.message?.thinking !== "string") {
       throw new OllamaError("INVALID_RESPONSE", "Ollama response did not contain message.content.");
     }
-    return content;
+    const content = stripThinkTags(
+      typeof rawContent === "string" && rawContent.trim() !== "" ? rawContent : (payload?.message?.thinking ?? ""),
+    );
+    return {
+      content,
+      truncated: payload?.done_reason === "length",
+    };
   }
 
   async listModels() {
@@ -97,7 +137,10 @@ export class OllamaClient {
 
         const detail = typeof response.text === "function" ? await response.text() : "";
         const code = response.status === 404 && /model/i.test(detail) ? "MODEL_NOT_FOUND" : "OLLAMA_HTTP_ERROR";
-        throw new OllamaError(code, detail || `Ollama request failed with HTTP ${response.status}.`, {
+        const message = code === "MODEL_NOT_FOUND" && detail === ""
+          ? `Ollama model not found. Run: ollama pull ${this.model}`
+          : detail || `Ollama request failed with HTTP ${response.status}.`;
+        throw new OllamaError(code, message, {
           status: response.status,
           retryable: response.status >= 500,
         });
