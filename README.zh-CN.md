@@ -81,7 +81,7 @@ node bin/local-vision.mjs --print-mcp-config --format codex > /tmp/local-vision.
 - `secondary_path`（可选）：与第一张对比的第二张图（before/after 截图），一次调用同时发送
 - 结果字段：`answer`、`observations`、`visible_text`、`uncertainties`、`truncated`（模型输出被截断时为 true）；失败时返回 `error_code` 且 `isError: true`
 
-报告由 JSON Schema 约束（Ollama structured outputs），模型不可能输出围栏或前言，只有截断可能降级输出——并通过 `truncated` 字段暴露。超过 `VISION_MAX_EDGE` 的 PNG 会在本地先降采样再发送；JPEG/WebP 直通，由 Ollama 处理。
+报告由 JSON Schema 约束（Ollama structured outputs），模型不可能输出围栏或前言，只有截断可能降级输出——并通过 `truncated` 字段暴露。这要求模型支持 structured outputs（qwen3-vl、gemma3、llama3.2-vision 可以；llava 等老模型可能拒收 Schema——换模型后跑一次 `npm run smoke` 验证）。超过 `VISION_MAX_EDGE` 的 PNG 会在本地先降采样再发送；JPEG/WebP 直通，由 Ollama 处理。
 
 ## 配置
 
@@ -127,4 +127,4 @@ npm run smoke   # 真实端到端：生成测试 PNG → 询问 Ollama → 校�
 LOG_LEVEL=debug node bin/local-vision.mjs
 ```
 
-每次 `vision_analyze` 调用都会记录耗时、模型、模式与 `ok`/`error_code`；启动时记录解析后的配置。服务不会缓存或记录图片字节。
+每次 `vision_analyze` 调用都会记录耗时、模型、模式、`ok`/`error_code`、`truncated` 与图片数量；启动时记录解析后的配置。服务不会缓存或记录图片字节。

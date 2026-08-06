@@ -81,7 +81,7 @@ Append the emitted `[mcp_servers.local-vision]` table to `~/.codex/config.toml` 
 - `secondary_path` (optional): a second image to compare against the first (before/after screenshots); both are sent in one call
 - Result fields: `answer`, `observations`, `visible_text`, `uncertainties`, `truncated` (true when the model hit its output limit); failures return `error_code` with `isError: true`
 
-The report is constrained by a JSON Schema (Ollama structured outputs), so the model cannot emit fences or prose — only a truncated payload can degrade it, and that is surfaced via `truncated`. PNG images larger than `VISION_MAX_EDGE` are downscaled locally before being sent; JPEG/WebP pass through and Ollama handles them.
+The report is constrained by a JSON Schema (Ollama structured outputs), so the model cannot emit fences or prose — only a truncated payload can degrade it, and that is surfaced via `truncated`. This requires an Ollama model with structured-outputs support (qwen3-vl, gemma3, llama3.2-vision; llava and older models may reject the schema — run `npm run smoke` after switching models). PNG images larger than `VISION_MAX_EDGE` are downscaled locally before being sent; JPEG/WebP pass through and Ollama handles them.
 
 ## Configuration
 
@@ -127,4 +127,4 @@ Diagnostics go to stderr only (stdout stays protocol-clean). Enable them with `-
 LOG_LEVEL=debug node bin/local-vision.mjs
 ```
 
-Each `vision_analyze` call logs duration, model, mode, and `ok`/`error_code`; startup logs the resolved config. The server does not cache or log image bytes.
+Each `vision_analyze` call logs duration, model, mode, `ok`/`error_code`, `truncated`, and image count; startup logs the resolved config. The server does not cache or log image bytes.
